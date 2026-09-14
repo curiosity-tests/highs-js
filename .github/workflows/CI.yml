@@ -18,6 +18,9 @@ on:
         type: string
         default: ""
 
+permissions:
+  contents: read
+  id-token: write
 env:
   CHALK_ON: ${{ inputs.leg == 'instrumented' }}
 name: Continuous Integration
@@ -32,7 +35,16 @@ jobs:
       node: ${{ steps.versions.outputs.node }}
       node_matrix: ${{ steps.versions.outputs.node_matrix }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        continue-on-error: true
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::warning::CURIOSITY_ROOT unset in this step - in a container job the observables install on the host"; exit 1; }
       - id: versions
         name: Read canonical versions
         run: |
@@ -46,9 +58,17 @@ jobs:
     needs: toolchain
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: crashappsec/action-checkout@main
         with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          lfs: false
           submodules: "recursive"
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        continue-on-error: true
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::warning::CURIOSITY_ROOT unset in this step - in a container job the observables install on the host"; exit 1; }
       - name: Cache C++ archives
         id: cache-archives
         uses: actions/cache@v4
